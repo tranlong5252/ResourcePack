@@ -1,0 +1,8 @@
+name: ResourcePack
+version: ${project.version}
+main: net.minevn.resourcepack.ResourcePack
+api-version: 1.16
+authors: [ Claus ]
+commands:
+  loadrsp:
+    permission: resourcepack.load
