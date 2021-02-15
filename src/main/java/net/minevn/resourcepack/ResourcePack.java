@@ -76,41 +76,38 @@ public final class ResourcePack extends JavaPlugin implements Listener {
     public void onResourcePack(final PlayerResourcePackStatusEvent e) {
         Player player = e.getPlayer();
         PlayerResourcePackStatusEvent.Status s = e.getStatus();
-        Bukkit.getScheduler().runTask(this, new Runnable() {
-            @Override
-            public void run() {
-                switch (s) {
-                    case DECLINED: {
-                        player.kickPlayer(
-                                "§c§lBạn không thể chơi vì đã chọn không cài gói tài nguyên, " +
-                                        "xem hướng dẫn cài lại tại link sau:"
-                                        + "\n§ahttp://minefs.net/blog/index.php/2016/09/23/" +
-                                        "huong-dan-cai-dat-goi-tai-nguyen/");
-                        player.sendTitle(new Title("", "", 0, 1, 0));
-                        break;
+        Bukkit.getScheduler().runTask(this, () -> {
+            switch (s) {
+                case DECLINED: {
+                    player.kickPlayer(
+                            "§c§lBạn không thể chơi vì đã chọn không cài gói tài nguyên, " +
+                                    "xem hướng dẫn cài lại tại link sau:"
+                                    + "\n§ahttp://minefs.net/blog/index.php/2016/09/23/" +
+                                    "huong-dan-cai-dat-goi-tai-nguyen/");
+                    player.sendTitle(new Title("", "", 0, 1, 0));
+                    break;
+                }
+                case ACCEPTED: {
+                    break;
+                }
+                case FAILED_DOWNLOAD: {
+                    int tried = tries.getOrDefault(player.getUniqueId(), 0);
+                    if (tried < 5) {
+                        player.sendMessage("§cĐang thử cài lại gói tài nguyên ("+ (++tried) +")...");
+                        tries.put(player.getUniqueId(), tried);
+                        e.getPlayer().setResourcePack(url, hash);
+                    } else {
+                        player.kickPlayer("§c§lTải gói tài nguyên thất bại, hãy thử vào lại."
+                                + "\n§e§lNếu bị nhiều lần hãy thử xóa thư mục §b§lserver-resource-packs " +
+                                "§e§ltrong §b§l.minecraft §e§lvà vào lại server.");
                     }
-                    case ACCEPTED: {
-                        break;
-                    }
-                    case FAILED_DOWNLOAD: {
-                        int tried = tries.getOrDefault(player.getUniqueId(), 0);
-                        if (tried < 5) {
-                            player.sendMessage("§cĐang thử cài lại gói tài nguyên ("+ (++tried) +")...");
-                            tries.put(player.getUniqueId(), tried);
-                            e.getPlayer().setResourcePack(url, hash);
-                        } else {
-                            player.kickPlayer("§c§lTải gói tài nguyên thất bại, hãy thử vào lại."
-                                    + "\n§e§lNếu bị nhiều lần hãy thử xóa thư mục §b§lserver-resource-packs " +
-                                    "§e§ltrong §b§l.minecraft §e§lvà vào lại server.");
-                        }
-                        break;
-                    }
-                    case SUCCESSFULLY_LOADED: {
-                        player.sendTitle("§a§lCài đặt thành công.", "", 0, 60, 10);
-                        player.sendMessage("§a§lĐã cài đặt thành công gói tài nguyên.");
-                        tries.remove(player.getUniqueId());
-                        break;
-                    }
+                    break;
+                }
+                case SUCCESSFULLY_LOADED: {
+                    player.sendTitle("§a§lCài đặt thành công.", "", 0, 60, 10);
+                    player.sendMessage("§a§lĐã cài đặt thành công gói tài nguyên.");
+                    tries.remove(player.getUniqueId());
+                    break;
                 }
             }
         });
