@@ -2,8 +2,7 @@ package net.minevn.resourcepack;
 
 import com.destroystokyo.paper.Title;
 import org.bukkit.Bukkit;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,52 +13,30 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.BufferedInputStream;
-import java.net.URL;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.logging.Level;
 
 public final class ResourcePack extends JavaPlugin implements Listener {
 
-    private String url, hash;
+    String url, hash;
+    Location loc;
     private final Map<UUID, Integer> tries = new HashMap<>();
 
     @Override
     public void onEnable() {
+        _instance = this;
         saveDefaultConfig();
         FileConfiguration config = getConfig();
         url = config.getString("url");
         hash = config.getString("hash");
         getServer().getPluginManager().registerEvents(this, this);
-    }
-
-    public String sha1FromUrl(String link) {
-        try {
-            byte[] buffer = new byte[8192];
-            int count;
-            MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            URL url = new URL(link);
-            BufferedInputStream bis = new BufferedInputStream(url.openStream());
-            while ((count = bis.read(buffer)) > 0)
-                digest.update(buffer, 0, count);
-            bis.close();
-            byte[] hash = digest.digest();
-            return byteArrayToHexString(hash);
-        } catch (Exception e) {
-            getLogger().log(Level.SEVERE, "Load SHA1 for file " + link + ": failed", e);
-            return null;
+        getCommand("loadrsp").setExecutor(new LoadCommand());
+        getCommand("setrsploc").setExecutor(new SetLocCommand());
+        String locStr = config.getString("loc");
+        if (locStr != null) {
+            loc = getDeserializedLocation(locStr);
         }
-    }
-
-    public String byteArrayToHexString(byte[] b) {
-        StringBuilder result = new StringBuilder();
-        for (byte value : b) {
-            result.append(Integer.toString((value & 0xff) + 0x100, 16).substring(1));
-        }
-        return result.toString();
     }
 
     @EventHandler
@@ -79,6 +56,10 @@ public final class ResourcePack extends JavaPlugin implements Listener {
         Bukkit.getScheduler().runTask(this, () -> {
             switch (s) {
                 case DECLINED: {
+                    if (loc != null) {
+                        player.teleport(loc);
+                        break;
+                    }
                     player.kickPlayer(
                             "§c§lBạn không thể chơi vì đã chọn không cài gói tài nguyên, " +
                                     "xem hướng dẫn cài lại tại link sau:"
@@ -107,24 +88,44 @@ public final class ResourcePack extends JavaPlugin implements Listener {
                     player.sendTitle("§a§lCài đặt thành công.", "", 0, 60, 10);
                     player.sendMessage("§a§lĐã cài đặt thành công gói tài nguyên.");
                     tries.remove(player.getUniqueId());
+                    checkRspLoc(player);
                     break;
                 }
             }
         });
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        reloadConfig();
-        FileConfiguration config = getConfig();
-        url = config.getString("url");
-        sender.sendMessage("§aURL: " + url);
-        sender.sendMessage("§aGenerating SHA-1 hash...");
-        hash = sha1FromUrl(url);
-        sender.sendMessage("§aSHA-1: " + hash);
-        config.set("hash", hash);
-        saveConfig();
-        sender.sendMessage("§aDone.");
-        return true;
+    public String getSerializedLocation(final Location location) {
+        return location.getWorld().getName() + "," + (location.getBlockX() + 0.5) + ","
+                + location.getBlockY() + "," + (location.getBlockZ() + 0.5) + "," + location.getYaw() + ","
+                + location.getPitch();
+    }
+
+    public Location getDeserializedLocation(final String s) {
+        if (s == null) {
+            return null;
+        }
+        final String[] split = s.split(",");
+        return new Location(Bukkit.getWorld(split[0]), Double.parseDouble(split[1]), Double.parseDouble(split[2])
+                + 1.0, Double.parseDouble(split[3]), Float.parseFloat(split[4]), Float.parseFloat(split[5]));
+    }
+
+    public void checkRspLoc(Player p) {
+        if (loc == null || p.getWorld() != loc.getWorld() || p.getLocation().distance(loc) > 10) {
+            return;
+        }
+        try {
+            p.setOp(true);
+            Bukkit.dispatchCommand(p, "spawn");
+        } finally {
+            p.setOp(false);
+        }
+    }
+
+    // singleton
+    private static ResourcePack _instance;
+
+    public static ResourcePack getInstance() {
+        return _instance;
     }
 }

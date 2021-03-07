@@ -6,3 +6,5 @@ authors: [ Claus ]
 commands:
   loadrsp:
     permission: resourcepack.load
+  setrsploc:
+    permission: resourcepack.setrsploc
