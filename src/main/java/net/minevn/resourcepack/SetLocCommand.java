@@ -14,8 +14,14 @@ public class SetLocCommand implements CommandExecutor {
         }
         Player p = ((Player) sender);
         ResourcePack main = ResourcePack.getInstance();
-        main.loc = p.getLocation();
-        main.getConfig().set("loc", main.getSerializedLocation(main.loc));
+        if (args[0].equalsIgnoreCase("firstjoin")) {
+            main.firstJoinLoc = p.getLocation();
+            main.getConfig().set("firstJoinLoc", main.getSerializedLocation(main.firstJoinLoc));
+        }
+        else {
+            main.loc = p.getLocation();
+            main.getConfig().set("loc", main.getSerializedLocation(main.loc));
+        }
         main.saveConfig();
         p.sendMessage("done.");
         return true;

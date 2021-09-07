@@ -1,6 +1,5 @@
 package net.minevn.resourcepack;
 
-import com.destroystokyo.paper.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -21,27 +20,26 @@ public final class ResourcePack extends JavaPlugin implements Listener {
 
     String url, hash;
     Location loc;
+    Location firstJoinLoc;
+    FileConfiguration config = getConfig();
     private final Map<UUID, Integer> tries = new HashMap<>();
 
     @Override
     public void onEnable() {
         _instance = this;
         saveDefaultConfig();
-        FileConfiguration config = getConfig();
         url = config.getString("url");
         hash = config.getString("hash");
         getServer().getPluginManager().registerEvents(this, this);
         getCommand("loadrsp").setExecutor(new LoadCommand());
         getCommand("setrsploc").setExecutor(new SetLocCommand());
-        String locStr = config.getString("loc");
-        if (locStr != null) {
-            loc = getDeserializedLocation(locStr);
-        }
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
-        e.getPlayer().setResourcePack(url, hash);
+        Player p = e.getPlayer();
+        p.sendTitle("§aXin chờ","§eĐang cài gói tài nguyên...",0,600,0);
+        Bukkit.getScheduler().runTaskLater(_instance,() -> p.setResourcePack(url, hash),60);
     }
 
     @EventHandler
@@ -56,16 +54,21 @@ public final class ResourcePack extends JavaPlugin implements Listener {
         Bukkit.getScheduler().runTask(this, () -> {
             switch (s) {
                 case DECLINED: {
-                    if (loc != null) {
-                        player.teleport(loc);
-                        break;
+                    String locStr = config.getString("loc");
+                    if (locStr != null) {
+                        loc = getDeserializedLocation(locStr);
                     }
-                    player.kickPlayer(
-                            "§c§lBạn không thể chơi vì đã chọn không cài gói tài nguyên, " +
-                                    "xem hướng dẫn cài lại tại link sau:"
-                                    + "\n§ahttp://minefs.net/blog/index.php/2016/09/23/" +
-                                    "huong-dan-cai-dat-goi-tai-nguyen/");
-                    player.sendTitle(new Title("", "", 0, 1, 0));
+                    if (loc != null) {
+                        try {
+                            player.teleport(loc);
+                            getLogger().warning(player.getName() +  " Đã từ chối cài rsp!");
+                            player.resetTitle();
+                        } catch (IllegalArgumentException ex) { getLogger().warning("Tọa độ không xác định! " + loc); }
+                    } else {
+                       player.kickPlayer("§c§lBạn không thể chơi vì đã chọn không cài gói tài " +
+                               "nguyên, xem hướng dẫn cài lại tại link sau:" + "\n§a" +
+                               "www.minevn.net/blog/huong-dan/huong-dan-cai-dat-goi-tai-nguyen.html");
+                    }
                     break;
                 }
                 case ACCEPTED: {
@@ -116,7 +119,18 @@ public final class ResourcePack extends JavaPlugin implements Listener {
         }
         try {
             p.setOp(true);
-            Bukkit.dispatchCommand(p, "spawn");
+            if (p.hasPermission("resourcepack.firstjoin")) {
+                String locStr = config.getString("firstJoinLoc");
+                if (locStr != null) {
+                    firstJoinLoc = getDeserializedLocation(locStr);
+                    try {
+                        p.teleport(firstJoinLoc);
+                    } catch (IllegalArgumentException ex) {
+                        getLogger().warning("Tọa độ không xác định! " + firstJoinLoc);
+                    }
+                }
+            }
+            else Bukkit.dispatchCommand(p, "spawn");
         } finally {
             p.setOp(false);
         }
